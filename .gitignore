@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Generated output directories
+/images/
+/data/
+/optimal/
+/aero_outputs/
+/airfoil_dat_files/
+/input_files/
+polar_files/
+/Xfoil699src/
+/surrogate_models/
+
+# Pickle files (can be large and are generated artifacts)
+*.pkl
+*.exe
+*.log
+
+# IDE and OS specific files
+.vscode/
+.idea/
+*.DS_Store
+.vs
