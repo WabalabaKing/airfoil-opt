@@ -53,7 +53,7 @@ OPT_Y_BOUND = 0.05
 OPT_X_BOUND = 0.05
 MAX_SLSQP_ITERS = 500
 # increase to make optimization more creative
-EXPLORATION_FACTOR = 1.0
+EXPLORATION_FACTOR = 1.5
 FTOL = 1e-7
 EPSILON = 1e-3
 
@@ -61,20 +61,20 @@ EPSILON = 1e-3
 ACTIVE_MAX_ITERS = 10
 REUSE_LHS_RESULTS = False
 # increase to loosen optimization convergence criteria
-ACTIVE_J_TOL = 2e-3
+ACTIVE_J_TOL = 5e-4
 ACTIVE_UNCERTAINTY_TOL = 0.09  
 
 # --- ADVANCED GP HYPERPARAMETER OPTIMIZATION ---
 USE_ADVANCED_CONVERGENCE = True
 # increase to lower regret tolerance
-EI_REGRET_TOLERANCE = 5e-4
+EI_REGRET_TOLERANCE = 5e-5
 CONFIDENCE_LEVEL = 0.90
 PAC_PROBABILITY_DELTA = 0.05
 
 # --- OBJECTIVE FUNCTION WEIGHTS ---
 WEIGHTS = {
     'w_alpha': 0.06,
-    'w_cl': 10.0,
+    'w_cl': 12.0,
     'w_cd': 4.0,
     'w_t_upper': 60.0,
     'w_t_lower': 60.0,
@@ -89,6 +89,6 @@ WEIGHTS = {
     'w_recovery': 15.0,
     'w_cd0': 30.0,
     'cd0_target': 0.007,
-    'w_detach': 30.0,
+    'w_detach': 20.0,
     'xtr_detach_min': 0.45,
 }

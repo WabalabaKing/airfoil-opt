@@ -4,20 +4,20 @@ Gradient-based refinement using SLSQP to maximize Expected Improvement.
 import numpy as np
 from scipy.optimize import minimize
 import pickle
-from typing import Dict, Any, Tuple
+from scipy.stats import norm
+from typing import Dict, Any, Tuple, List
 from . import config
 from .ffd_geometry import FFDBox2D
 from .ffd_xfoil_analysis import Xfoil_Analysis, Analysis_Params
 from .geometry_utils import extract_camberline, normalize_unit_chord
 from .objective_function import score_design, Weights
 from .optimization_utils import (
-    pack_dofs, unpack_dofs, create_constraints, _setup_bounds,
-    calculate_expected_improvement
+    unpack_dofs, create_constraints, _setup_bounds
 )
 
-def run_gradient_refinement(best_lhs: Dict, surrogate, params: Analysis_Params, seed_airfoil: np.ndarray, result_name: str) -> Dict:
+def run_gradient_refinement(best_lhs: Dict, surrogate, params: Analysis_Params, seed_airfoil: np.ndarray, result_name: str, lhs_results: List[Dict]) -> Dict:
     """Refine design using SLSQP to maximize Expected Improvement."""
-    optimizer = SLSQPOptimizer(best_lhs, surrogate, params, seed_airfoil, result_name)
+    optimizer = SLSQPOptimizer(best_lhs, surrogate, params, seed_airfoil, result_name, lhs_results)
     return optimizer.optimize()
 
 class SLSQPOptimizer:
@@ -27,10 +27,11 @@ class SLSQPOptimizer:
     Improvement based on the surrogate model's predictions.
     """
     
-    def __init__(self, best_lhs, surrogate, params, seed_airfoil, result_name):
+    def __init__(self, best_lhs, surrogate, params, seed_airfoil, result_name, lhs_results):
         self.best_lhs = best_lhs
         self.surrogate = surrogate
         self.params = params
+        self.lhs_results = lhs_results
         self.weights = Weights()
         self.seed_airfoil = seed_airfoil
         self.result_name = result_name
@@ -39,17 +40,27 @@ class SLSQPOptimizer:
         self.best_vec = None
         self.max_ei = -float('inf')
         self.opt_history = []
+        self.J_mean = 0.0
+        self.J_std = 1.0
+        self.normalized_best_J = 0.0
     
     def optimize(self) -> Dict:
         """Execute the optimization."""
         print(f"Starting EGO refinement. Current best J = {self.J_best:.4f}")
+        all_J_values = np.array([r['J'] for r in self.lhs_results if r.get('J') is not None])
+        if all_J_values.size:
+            self.J_mean = float(np.mean(all_J_values))
+            self.J_std = float(np.std(all_J_values))
+        if self.J_std < 1e-6:
+            self.J_std = 1.0
+        
+        # normalize the best-known j value
+        self.normalized_best_J = (self.J_best - self.J_mean) / self.J_std
         
         ffd_box = FFDBox2D.from_airfoil(self.seed_airfoil, pad=(config.FFD_PAD_X, config.FFD_PAD_Y), grid=(config.FFD_NX, config.FFD_NY))
         base_deltas = self.best_lhs.get('dP', np.zeros_like(ffd_box.control_points)).copy()
         mask = _control_dof_mask(ffd_box)
         
-        # This factory function creates a closure that remembers the state
-        # of the FFD box, seed airfoil, base deltas, and mask.
         self.vec_to_coords = self.vec_to_coords_factory(ffd_box, self.seed_airfoil, base_deltas, mask)
         
         vec0 = np.zeros(mask.sum())
@@ -104,19 +115,28 @@ class SLSQPOptimizer:
         # Composite uncertainty, weighted by importance in objective function
         sigma_pred = max(self.weights.w_cl * cl_std + self.weights.w_cd * cd_std, 1e-6)
         
+
+        J_pred_norm = (J_pred - self.J_mean) / self.J_std
+        sigma_pred_norm = sigma_pred / self.J_std
+        
         # Scale uncertainty by exploration factor to encourage creativity
         creative_sigma = sigma_pred * config.EXPLORATION_FACTOR
-        ei = calculate_expected_improvement(J_pred, creative_sigma, self.J_best)
+        imp = self.normalized_best_J - J_pred_norm
+        z = imp / sigma_pred_norm if sigma_pred_norm > 1e-9 else 0
+        ei = imp * norm.cdf(z) + sigma_pred_norm * norm.pdf(z)
         
-        self.opt_history.append({'iteration': self.eval_count, 'J_pred': J_pred, 'sigma_pred': creative_sigma, 'EI': ei})
+        # add the exploration factor to the final EI value
+        ei_plus = ei + config.EXPLORATION_FACTOR * sigma_pred_norm
+
+        self.opt_history.append({'iteration': self.eval_count, 'J_pred': J_pred, 'sigma_pred': creative_sigma, 'EI': ei_plus})
         
-        if ei > self.max_ei:
-            self.max_ei = ei
+        if ei_plus > self.max_ei:
+            self.max_ei = ei_plus
             self.best_vec = vec.copy()
         
-        if self.eval_count % 10 == 1: print(f"  [{self.eval_count:02d}] Pred J={J_pred:.3f}, CreativeSigma={creative_sigma:.4f}, EI={ei:.4e}")
+        if self.eval_count % 10 == 1: print(f"  [{self.eval_count:02d}] Pred J={J_pred:.3f}, CreativeSigma={creative_sigma:.4f}, EI={ei_plus:.4e}")
         
-        return -ei  # Minimize negative EI -> Maximize EI
+        return -ei_plus  # Minimize negative EI -> Maximize EI
     
     def _run_slsqp(self, vec0, bounds, constraints):
         try:

@@ -92,7 +92,8 @@ class ActiveAirfoilOptimizer:
                 surrogate=surrogate,
                 params=self.params,
                 seed_airfoil=self.seed_airfoils[seed_idx]["xy"],
-                result_name=f"opt_{k+1:02d}"
+                result_name=f"opt_{k+1:02d}",
+                lhs_results=self.lhs_results
             )
 
             # check for convergence
