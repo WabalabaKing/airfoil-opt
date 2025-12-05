@@ -1,0 +1,20 @@
+PLOP
+G F
+
+LOAD seed_airfoils\dat_files\naca0015.dat
+PANE
+PPAR
+N 120
+
+
+OPER
+Visc 5000000
+M 0.2
+ITER 250
+PACC
+seed_airfoils\polar_files\naca0015_polar.txt
+
+ASeq -5.0 20.0 0.5
+PACC
+
+quit
