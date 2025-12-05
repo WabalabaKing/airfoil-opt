@@ -112,18 +112,18 @@ class Xfoil_Analysis:
             alpha, cl, cd, cm = data[:, 0], data[:, 1], data[:, 2], data[:, 4]
             ld = cl / np.maximum(cd, 1e-6)
             
-            i_cl_max = np.argmax(cl)
+            i_CL_max = np.argmax(cl)
             i_ld_max = np.argmax(ld)
             i_alpha0 = np.argmin(np.abs(alpha))
             
             return {
-                "CL_max": float(cl[i_cl_max]),
-                "alpha_CL_max": float(alpha[i_cl_max]),
-                "CD": float(cd[i_cl_max]),
-                "CM": float(cm[i_cl_max]),
+                "CL_max": float(cl[i_CL_max]),
+                "alpha_CL_max": float(alpha[i_CL_max]),
+                "CD": float(cd[i_CL_max]),
+                "CM": float(cm[i_CL_max]),
                 "LD_max": float(ld[i_ld_max]),
-                "Top_Xtr": float(data[i_cl_max, 5]) if data.shape[1] >= 6 else np.nan,
-                "Bot_Xtr": float(data[i_cl_max, 6]) if data.shape[1] >= 7 else np.nan,
+                "Top_Xtr": float(data[i_CL_max, 5]) if data.shape[1] >= 6 else np.nan,
+                "Bot_Xtr": float(data[i_CL_max, 6]) if data.shape[1] >= 7 else np.nan,
                 "CD_alpha0": float(cd[i_alpha0]),
                 "CM_alpha0": float(cm[i_alpha0]),
                 "converged": True

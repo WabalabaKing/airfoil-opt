@@ -4,20 +4,32 @@ LHS engine to generate initial design space samples.
 import numpy as np
 from scipy.stats import qmc
 from multiprocessing import Pool, cpu_count
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 from . import config
 from .ffd_xfoil_analysis import Xfoil_Analysis, Analysis_Params
 from .ffd_geometry import FFDBox2D
 from .geometry_utils import normalize_unit_chord, extract_camberline, thickness_ratio, resample_airfoil
 from .objective_function import score_design, Weights
 
-def run_lhs_sampling(seed_airfoils: List[np.ndarray], params: Analysis_Params) -> List[Dict]:
+SeedType = Union[np.ndarray, Dict[str, np.ndarray]]
+
+def run_lhs_sampling(seed_airfoils: List[SeedType], params: Analysis_Params) -> List[Dict]:
     """Orchestrates the LHS sampling and evaluation."""
     n_dofs_per_coord = 2 if config.ENABLE_X_DOFS else 1
     n_dofs = (config.FFD_NX - 2) * config.FFD_NY * n_dofs_per_coord
     print(f"FFD Grid: ({config.FFD_NX}, {config.FFD_NY}), DOFs: {n_dofs}")
 
-    designs = _generate_designs(seed_airfoils, n_dofs, params.PANEL_POINTS)
+    seed_arrays = []
+    for seed in seed_airfoils:
+        if isinstance(seed, dict):
+            xy = seed.get("xy")
+            if xy is None:
+                raise ValueError("Seed dictionary is missing 'xy' coordinates.")
+        else:
+            xy = seed
+        seed_arrays.append(np.asarray(xy))
+
+    designs = _generate_designs(seed_arrays, n_dofs, params.PANEL_POINTS)
     print(f"Generated {len(designs)} valid initial geometries.")
 
     prepared_args = []
